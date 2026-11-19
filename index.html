@@ -1,0 +1,1525 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F2EBDF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0F222B" media="(prefers-color-scheme: dark)">
+<title>MyoTurtle – Panel del terapeuta</title>
+<script>
+// Reporte de errores visible (en el celular no hay consola).
+// Los errores sin detalle ("Script error.") vienen de scripts que el navegador inyecta, no de esta página:
+// solo se muestran si el código de la página no logró arrancar.
+window.__errores = [];
+window.__mostrarError = function (txt) {
+  var d = document.getElementById("errorJS");
+  if (!d) { d = document.createElement("div"); d.id = "errorJS";
+    d.style.cssText = "position:fixed;left:8px;right:8px;top:60px;z-index:99;background:#B3261E;color:#fff;font:13px/1.4 system-ui,sans-serif;padding:10px 12px;border-radius:12px;word-break:break-word";
+    d.addEventListener("click", function () { d.remove(); });
+    (document.body || document.documentElement).appendChild(d); }
+  d.textContent = txt + " (toca para cerrar)";
+};
+window.onerror = function (msg, src, linea, col, err) {
+  var t = msg + (linea ? " (línea " + linea + ":" + col + ")" : "");
+  window.__errores.push(t);
+  if (window.__tortugaLista && msg !== "Script error.") window.__mostrarError("Error en la página: " + t);
+};
+window.addEventListener("load", function () {
+  setTimeout(function () {
+    if (!window.__tortugaLista) window.__mostrarError("El código de la página no arrancó. Errores: " +
+      (window.__errores.join(" | ") || "ninguno") + ". Navegador: " + navigator.userAgent);
+  }, 1500);
+});
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F2EBDF;        /* arena */
+  --sup:#FBF7F0;       /* superficie de paneles */
+  --linea:#E2D7C4;
+  --tinta:#1D3946;     /* azul de fondo marino */
+  --tinta2:#5C727D;
+  --turq:#1F8C89;      /* turquesa: señal */
+  --agua:#7FCBBF;      /* aguamarina: banda objetivo */
+  --cel:#A6D2E6;       /* celeste */
+  --coral:#D9705E;     /* umbral de activación */
+  --lav:#8D80C2;       /* máximo estimado */
+  --ok:#2E9B57;        /* indicador conectado (verde) */
+  --mal:#D2453B;       /* indicador desconectado (rojo) */
+  --dibujo:#2C6B78;    /* dibujos marinos de fondo */
+  --dibujo-op:.085;
+  --toast-bg:#1D3946; --toast-tx:#F7F2E8;
+  color-scheme: light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F222B; --sup:#15303A; --linea:#25444F; --tinta:#E4EDEE; --tinta2:#93ACB4;
+    --turq:#4CC3BA; --agua:#4FA79C; --cel:#6FB3D1; --coral:#EC8F7E; --lav:#AFA3DF;
+    --dibujo:#8FD3D0; --dibujo-op:.07; --toast-bg:#E4EDEE; --toast-tx:#0F222B;
+    --ok:#5CCB86; --mal:#F07468;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F222B; --sup:#15303A; --linea:#25444F; --tinta:#E4EDEE; --tinta2:#93ACB4;
+  --turq:#4CC3BA; --agua:#4FA79C; --cel:#6FB3D1; --coral:#EC8F7E; --lav:#AFA3DF;
+  --dibujo:#8FD3D0; --dibujo-op:.07; --toast-bg:#E4EDEE; --toast-tx:#0F222B;
+  --ok:#5CCB86; --mal:#F07468;
+  color-scheme: dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
+body{
+  margin:0;min-height:100%;
+  background:var(--bg);color:var(--tinta);
+  font-family:"Lexend",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-weight:400;font-size:16px;line-height:1.45;
+  -webkit-tap-highlight-color:transparent;
+}
+body::before{content:"";position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+[hidden]{display:none !important}
+:focus-visible{outline:2px solid var(--turq);outline-offset:3px;border-radius:10px}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---------- fondo marino ---------- */
+.fondo{position:fixed;top:0;right:0;bottom:0;left:0;z-index:0;pointer-events:none;opacity:var(--dibujo-op);color:var(--dibujo)}
+.fondo svg{width:100%;height:100%}
+.fondo *{vector-effect:non-scaling-stroke}
+
+/* ---------- barra superior ---------- */
+.barra{
+  position:sticky;top:env(safe-area-inset-top,0px);z-index:5;
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;
+  padding:12px 18px 10px;background:var(--bg);
+  border-bottom:1px solid var(--linea);
+}
+.marca{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.marca svg{flex:none;color:var(--turq)}
+.marca h1{margin:0;font-size:18px;font-weight:500;letter-spacing:-.01em;line-height:1.2}
+.marca p{margin:0;font-size:13px;color:var(--tinta2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.punto{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--tinta2);margin-right:6px;vertical-align:1px}
+.punto.on{background:var(--turq)}
+.punto.esp{background:var(--coral)}
+/* indicadores de WiFi y Firebase: rojo = desconectado, verde = conectado */
+.indicadores{flex-basis:100%;display:flex;flex-wrap:wrap;gap:8px}
+.indicador{display:inline-flex;align-items:center;gap:7px;font-size:13px;padding:4px 11px 4px 9px;border-radius:999px;background:var(--sup);box-shadow:inset 0 0 0 1px var(--linea);color:var(--tinta2)}
+.led{flex:none;width:9px;height:9px;border-radius:50%;background:var(--mal);transition:background-color .3s}
+.led.ok{background:var(--ok)}
+@media (prefers-reduced-motion: reduce){.led{transition:none}}
+.btn{
+  border:0;border-radius:999px;padding:10px 16px;min-height:42px;
+  font-size:15px;font-weight:500;cursor:pointer;white-space:nowrap;
+}
+.btn-prim{background:var(--turq);color:var(--sup)}
+.btn-sec{background:transparent;color:var(--tinta);box-shadow:inset 0 0 0 1.5px var(--linea)}
+.btn:disabled{opacity:.5}
+.aviso-conexion{
+  flex-basis:100%;display:flex;align-items:center;gap:8px;
+  margin:0;padding:8px 12px;border-radius:12px;font-size:14px;line-height:1.35;
+  background:var(--sup);background:color-mix(in srgb,var(--coral) 14%,var(--sup));
+  box-shadow:inset 0 0 0 1px var(--linea);
+}
+.aviso-conexion svg{flex:none;color:var(--coral)}
+.btn-ancho{width:100%}
+.btn.confirmar{background:var(--coral);color:var(--sup);box-shadow:none}
+.guia .btn{margin-top:10px}
+.sets{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:14px;padding:12px 16px;border-radius:16px;background:var(--sup);box-shadow:inset 0 0 0 1px var(--linea)}
+.sets span{font-size:15px}
+.sets small{display:block;font-size:13px;color:var(--tinta2)}
+.sets b{font-size:34px;font-weight:400;line-height:1;color:var(--turq)}
+
+/* ---------- vistas ---------- */
+main{position:relative;z-index:1;max-width:620px;margin:0 auto;padding:16px 18px calc(96px + env(safe-area-inset-bottom,0px))}
+.vista[hidden]{display:none}
+
+.guia{
+  margin:0 0 14px;padding:12px 14px;border-radius:14px;
+  background:var(--sup);
+  background:color-mix(in srgb,var(--lav) 16%,var(--sup));
+  border-left:4px solid var(--lav);font-size:15px;
+}
+.guia strong{font-weight:500;display:block;margin-bottom:2px}
+
+.lectura{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:2px 0 4px}
+.lectura-v{font-size:60px;font-weight:300;letter-spacing:-.03em;line-height:1}
+.lectura-v small{font-size:22px;font-weight:400;color:var(--tinta2);letter-spacing:0;margin-left:4px}
+.lectura-pct{text-align:right;font-size:14px;color:var(--tinta2);padding-bottom:6px}
+.lectura-pct b{display:block;font-size:28px;font-weight:400;color:var(--tinta);line-height:1.1}
+.estado-linea{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 14px}
+.chip{font-size:13px;padding:4px 10px;border-radius:999px;background:var(--sup);box-shadow:inset 0 0 0 1px var(--linea);color:var(--tinta2)}
+.chip.vivo{color:var(--tinta);box-shadow:inset 0 0 0 1.5px var(--turq)}
+.chip.alerta{color:var(--tinta);box-shadow:inset 0 0 0 1.5px var(--coral)}
+
+.grafica{position:relative;background:var(--sup);border:1px solid var(--linea);border-radius:20px;padding:8px 6px 4px}
+.grafica canvas{display:block;width:100%;height:230px}
+.vacio{
+  position:absolute;top:0;right:0;bottom:0;left:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+  text-align:center;padding:20px;border-radius:20px;background:var(--sup);background:color-mix(in srgb,var(--sup) 82%,transparent);
+}
+.vacio p{margin:0;max-width:30ch;color:var(--tinta2);font-size:15px}
+.vacio .fila{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.leyenda{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--tinta2);padding:6px 8px 4px}
+.leyenda span::before{content:"";display:inline-block;width:14px;height:0;border-top:2px solid var(--c);margin-right:6px;vertical-align:3px}
+.leyenda span.dash::before{border-top-style:dashed}
+.leyenda span.banda::before{height:8px;border:0;background:var(--c);opacity:.55;border-radius:2px;vertical-align:0}
+
+.tortuga{margin:18px 0 6px}
+.tortuga-cab{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:14px;color:var(--tinta2);margin-bottom:8px}
+.tortuga-cab b{font-weight:500;color:var(--tinta)}
+.segs{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.seg{height:16px;border-radius:8px;background:var(--linea);overflow:hidden;position:relative}
+.seg i{position:absolute;top:0;bottom:0;left:0;width:0;background:var(--c);border-radius:8px;transition:width .12s linear}
+@media (prefers-reduced-motion: reduce){.seg i{transition:none}}
+
+.valores{display:grid;grid-template-columns:1fr 1fr;margin:18px 0 0;border-top:1px solid var(--linea)}
+.valores div{padding:12px 4px 12px 0;border-bottom:1px solid var(--linea)}
+.valores div:nth-child(odd){padding-right:12px;border-right:1px solid var(--linea)}
+.valores div:nth-child(even){padding-left:14px}
+.valores dt{font-size:13px;color:var(--tinta2)}
+.valores dd{margin:2px 0 0;font-size:22px;font-weight:400}
+.valores dd small{font-size:13px;color:var(--tinta2);margin-left:3px}
+
+/* ---------- ajustes ---------- */
+.bloque{padding:18px 0 20px;border-bottom:1px solid var(--linea)}
+.bloque:first-of-type{padding-top:4px}
+.bloque h2{margin:0 0 4px;font-size:18px;font-weight:500;letter-spacing:-.01em}
+.bloque p.ayuda{margin:0 0 14px;font-size:14px;color:var(--tinta2);max-width:52ch}
+
+.segmentado{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:16px;background:var(--sup);box-shadow:inset 0 0 0 1px var(--linea)}
+.segmentado button{border:0;background:transparent;border-radius:12px;padding:12px 8px;font-size:15px;cursor:pointer;color:var(--tinta2)}
+.segmentado button[aria-pressed="true"]{background:var(--turq);color:var(--sup);font-weight:500}
+.desc-modo{margin:10px 2px 0;font-size:14px;color:var(--tinta2)}
+.vista-tipo{margin:16px 0 0}
+.vista-tipo-cab{margin:0 2px 8px;font-size:14px;color:var(--tinta2)}
+.vista-tipo .segmentado button:disabled{opacity:.45;cursor:default}
+
+.deslizador{display:flex;align-items:center;gap:14px}
+.deslizador output{min-width:62px;text-align:right;font-size:24px;font-weight:400}
+.deslizador output small{font-size:14px;color:var(--tinta2)}
+input[type=range]{
+  -webkit-appearance:none;appearance:none;flex:1;height:36px;background:transparent;margin:0;
+  --p:50%;
+}
+input[type=range]::-webkit-slider-runnable-track{
+  height:8px;border-radius:4px;
+  background:linear-gradient(to right,var(--turq) 0 var(--p),var(--linea) var(--p) 100%);
+}
+input[type=range]::-moz-range-track{height:8px;border-radius:4px;background:var(--linea)}
+input[type=range]::-moz-range-progress{height:8px;border-radius:4px;background:var(--turq)}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:28px;height:28px;border-radius:50%;margin-top:-10px;
+  background:var(--sup);border:2px solid var(--turq);box-shadow:0 1px 3px rgba(29,57,70,.25);
+}
+input[type=range]::-moz-range-thumb{width:24px;height:24px;border-radius:50%;background:var(--sup);border:2px solid var(--turq)}
+input[type=range]:disabled{opacity:.45}
+.banda-txt{margin:10px 0 0;font-size:14px;color:var(--tinta2)}
+.mini-banda{position:relative;height:10px;border-radius:5px;background:var(--linea);margin-top:10px;overflow:hidden}
+.mini-banda i{position:absolute;top:0;bottom:0;background:var(--agua)}
+.mini-banda i.sale{background:var(--linea);opacity:.9;background:color-mix(in srgb,var(--agua) 38%,transparent)}
+
+.colores-modo{margin-top:14px}
+.colores-modo:first-of-type{margin-top:0}
+.colores-modo h3{margin:0 0 10px;font-size:15px;font-weight:500;display:flex;justify-content:space-between;gap:8px}
+.colores-modo h3 span{font-weight:400;color:var(--tinta2)}
+.muestras{display:grid;grid-template-columns:repeat(4,1fr);gap:12px 8px}
+.muestra{border:0;background:transparent;padding:4px 0;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--tinta2)}
+.muestra .disco{
+  width:46px;height:46px;border-radius:50%;
+  background:var(--g);box-shadow:inset 0 0 0 6px var(--t),0 0 0 1px var(--linea);
+}
+.muestra[aria-pressed="true"]{color:var(--tinta);font-weight:500}
+.muestra[aria-pressed="true"] .disco{box-shadow:inset 0 0 0 6px var(--t),0 0 0 3px var(--bg),0 0 0 5px var(--tinta)}
+.muestra:disabled{opacity:.45;cursor:default}
+.nota{font-size:13px;color:var(--tinta2);margin:16px 0 0}
+
+/* ---------- datos (grabacion de sesion) ---------- */
+.dt-sep{margin-top:10px}
+.dt-estado{min-height:20px}
+.dt-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--linea)}
+.dt-item:first-child{border-top:0}
+.dt-info{min-width:0;font-size:14px}
+.dt-info b{display:block;font-weight:500;font-size:15px}
+.dt-info span{display:block;color:var(--tinta2);font-size:13px;word-break:break-all}
+.dt-acc{display:flex;gap:6px;flex:none;flex-wrap:wrap;justify-content:flex-end}
+.btn.dt-peq{padding:8px 14px;min-height:38px;font-size:14px}
+
+/* ---------- pestañas ---------- */
+.pestanas{
+  position:fixed;left:0;right:0;bottom:0;z-index:6;
+  display:grid;grid-template-columns:repeat(3,1fr);
+  background:var(--bg);
+  background:color-mix(in srgb,var(--bg) 92%,transparent);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  border-top:1px solid var(--linea);
+  padding:6px 12px calc(6px + env(safe-area-inset-bottom,0px));
+}
+.pestanas button{
+  border:0;background:transparent;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:6px 0;font-size:13px;color:var(--tinta2);border-radius:12px;
+}
+.pestanas button[aria-selected="true"]{color:var(--turq);font-weight:500}
+.pestanas svg{width:26px;height:26px}
+
+.aviso{
+  position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:7;
+  transform:translate(-50%,12px);opacity:0;pointer-events:none;
+  background:var(--toast-bg);color:var(--toast-tx);font-size:14px;
+  padding:10px 16px;border-radius:999px;max-width:calc(100% - 36px);text-align:center;
+  transition:opacity .2s,transform .2s;
+}
+.aviso.ver{opacity:1;transform:translate(-50%,0)}
+@media (prefers-reduced-motion: reduce){.aviso{transition:none}}
+@media (min-width:560px){.grafica canvas{height:270px}}
+</style>
+</head>
+<body>
+
+<!-- Fondo marino: trazos finos, casi imperceptibles -->
+<div class="fondo" aria-hidden="true">
+  <svg viewBox="0 0 400 860" preserveAspectRatio="xMidYMid slice" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+<!-- tortuga grande -->
+<g transform="translate(296 150) rotate(-22) scale(.78)">
+<path d="M-72 4 C-74 -30 -30 -50 12 -48 C50 -46 76 -26 76 0 C76 26 50 44 10 46 C-32 48 -70 36 -72 4 Z"/>
+<path d="M-62 4 C-63 -24 -26 -40 10 -39 C43 -38 65 -21 65 0 C65 21 43 36 9 37 C-28 38 -60 28 -62 4 Z"/>
+<path d="M-47 0 L-40.5 -11 L-27.5 -11 L-21 0 L-27.5 11 L-40.5 11 Z"/>
+<path d="M-20 -1 L-13 -12.9 L1 -12.9 L8 -1 L1 10.9 L-13 10.9 Z"/>
+<path d="M10 0 L16.5 -11 L29.5 -11 L36 0 L29.5 11 L16.5 11 Z"/>
+<path d="M-47 0 L-62 2"/>
+<path d="M36 0 L65 0"/>
+<path d="M-40.5 -11 L-46 -31"/>
+<path d="M-20 -12 L-18 -38"/>
+<path d="M8 -12 L12 -38"/>
+<path d="M29.5 -11 L40 -30"/>
+<path d="M-40.5 11 L-46 30"/>
+<path d="M-20 12 L-20 37"/>
+<path d="M8 12 L10 37"/>
+<path d="M29.5 11 L40 30"/>
+<path d="M74 -9 C82 -18 100 -17 106 -6 C110 3 102 12 90 12 C82 12 77 8 74 6"/>
+<circle cx="97" cy="-5" r="1.6" fill="currentColor"/>
+<path d="M30 -42 C40 -70 72 -92 104 -90 C98 -78 86 -70 76 -62 Q71 -57 67 -58 Q64 -52 59 -52 Q56 -46 50 -46 Q46 -42 42 -42"/>
+<path d="M30 -42 C40 -70 72 -92 104 -90 C98 -78 86 -70 76 -62 Q71 -57 67 -58 Q64 -52 59 -52 Q56 -46 50 -46 Q46 -42 42 -42" transform="scale(1 -1)"/>
+<path d="M-56 -30 C-70 -44 -92 -50 -106 -44 C-100 -36 -92 -33 -86 -30 Q-82 -26 -77 -27 Q-73 -23 -68 -24 Q-64 -20 -60 -22"/>
+<path d="M-56 -30 C-70 -44 -92 -50 -106 -44 C-100 -36 -92 -33 -86 -30 Q-82 -26 -77 -27 Q-73 -23 -68 -24 Q-64 -20 -60 -22" transform="scale(1 -1)"/>
+<path d="M-72 -3 L-84 1 L-72 6"/>
+</g>
+<!-- burbujas junto a la tortuga -->
+<circle cx="214" cy="230" r="9"/>
+<path d="M209.1 230.4 Q209.1 225.5 213.6 224.8"/>
+<circle cx="200" cy="256" r="5.5"/>
+<path d="M197 256.3 Q197 253.2 199.7 252.8"/>
+<circle cx="222" cy="262" r="3.4"/>
+<circle cx="236" cy="214" r="4"/>
+<circle cx="30" cy="120" r="7"/>
+<path d="M26.1 120.3 Q26.1 116.5 29.6 115.9"/>
+<circle cx="44" cy="100" r="4"/>
+<circle cx="22" cy="96" r="2.6"/>
+<!-- ola -->
+<g transform="translate(-14 300) scale(.95)">
+<path d="M0 44 C34 42 56 14 86 4 C108 -3 128 6 132 22 C122 12 106 14 101 26 C96 40 114 46 140 44 L178 44"/>
+<path d="M100 26 C104 18 114 16 121 20"/>
+<path d="M4 58 Q24 50 44 58 T84 58 T124 58 T164 58"/>
+</g>
+<!-- estrella pequena -->
+<g transform="translate(346 420) rotate(18) scale(.42)">
+<path d="M-14.1 -19.4 Q-7.4 -33.3 -4.3 -61.8 Q0 -67 4.3 -61.8 Q7.4 -33.3 14.1 -19.4 Q29.3 -17.4 57.5 -23.2 Q63.7 -20.7 60.2 -15 Q33.9 -3.2 22.8 7.4 Q25.6 22.5 39.9 47.5 Q39.4 54.2 32.8 52.6 Q13.5 31.3 0 24 Q-13.5 31.3 -32.8 52.6 Q-39.4 54.2 -39.9 47.5 Q-25.6 22.5 -22.8 7.4 Q-33.9 -3.2 -60.2 -15 Q-63.7 -20.7 -57.5 -23.2 Q-29.3 -17.4 -14.1 -19.4 Z"/>
+<circle cx="0" cy="0" r="3.4"/>
+<circle cx="0" cy="-12" r="2.8"/>
+<circle cx="0" cy="-21" r="2.5"/>
+<circle cx="0" cy="-30" r="2.2"/>
+<circle cx="0" cy="-39" r="1.8"/>
+<circle cx="0" cy="-47" r="1.4"/>
+<circle cx="0" cy="-54" r="1.0"/>
+<circle cx="11.4" cy="-3.7" r="2.8"/>
+<circle cx="20" cy="-6.5" r="2.5"/>
+<circle cx="28.5" cy="-9.3" r="2.2"/>
+<circle cx="37.1" cy="-12.1" r="1.8"/>
+<circle cx="44.7" cy="-14.5" r="1.4"/>
+<circle cx="51.4" cy="-16.7" r="1.0"/>
+<circle cx="7.1" cy="9.7" r="2.8"/>
+<circle cx="12.3" cy="17" r="2.5"/>
+<circle cx="17.6" cy="24.3" r="2.2"/>
+<circle cx="22.9" cy="31.6" r="1.8"/>
+<circle cx="27.6" cy="38" r="1.4"/>
+<circle cx="31.7" cy="43.7" r="1.0"/>
+<circle cx="-7.1" cy="9.7" r="2.8"/>
+<circle cx="-12.3" cy="17" r="2.5"/>
+<circle cx="-17.6" cy="24.3" r="2.2"/>
+<circle cx="-22.9" cy="31.6" r="1.8"/>
+<circle cx="-27.6" cy="38" r="1.4"/>
+<circle cx="-31.7" cy="43.7" r="1.0"/>
+<circle cx="-11.4" cy="-3.7" r="2.8"/>
+<circle cx="-20" cy="-6.5" r="2.5"/>
+<circle cx="-28.5" cy="-9.3" r="2.2"/>
+<circle cx="-37.1" cy="-12.1" r="1.8"/>
+<circle cx="-44.7" cy="-14.5" r="1.4"/>
+<circle cx="-51.4" cy="-16.7" r="1.0"/>
+</g>
+<!-- tortuga pequena -->
+<g transform="translate(84 436) rotate(150) scale(.4)">
+<path d="M-72 4 C-74 -30 -30 -50 12 -48 C50 -46 76 -26 76 0 C76 26 50 44 10 46 C-32 48 -70 36 -72 4 Z"/>
+<path d="M-62 4 C-63 -24 -26 -40 10 -39 C43 -38 65 -21 65 0 C65 21 43 36 9 37 C-28 38 -60 28 -62 4 Z"/>
+<path d="M-47 0 L-40.5 -11 L-27.5 -11 L-21 0 L-27.5 11 L-40.5 11 Z"/>
+<path d="M-20 -1 L-13 -12.9 L1 -12.9 L8 -1 L1 10.9 L-13 10.9 Z"/>
+<path d="M10 0 L16.5 -11 L29.5 -11 L36 0 L29.5 11 L16.5 11 Z"/>
+<path d="M-47 0 L-62 2"/>
+<path d="M36 0 L65 0"/>
+<path d="M-40.5 -11 L-46 -31"/>
+<path d="M-20 -12 L-18 -38"/>
+<path d="M8 -12 L12 -38"/>
+<path d="M29.5 -11 L40 -30"/>
+<path d="M-40.5 11 L-46 30"/>
+<path d="M-20 12 L-20 37"/>
+<path d="M8 12 L10 37"/>
+<path d="M29.5 11 L40 30"/>
+<path d="M74 -9 C82 -18 100 -17 106 -6 C110 3 102 12 90 12 C82 12 77 8 74 6"/>
+<circle cx="97" cy="-5" r="1.6" fill="currentColor"/>
+<path d="M30 -42 C40 -70 72 -92 104 -90 C98 -78 86 -70 76 -62 Q71 -57 67 -58 Q64 -52 59 -52 Q56 -46 50 -46 Q46 -42 42 -42"/>
+<path d="M30 -42 C40 -70 72 -92 104 -90 C98 -78 86 -70 76 -62 Q71 -57 67 -58 Q64 -52 59 -52 Q56 -46 50 -46 Q46 -42 42 -42" transform="scale(1 -1)"/>
+<path d="M-56 -30 C-70 -44 -92 -50 -106 -44 C-100 -36 -92 -33 -86 -30 Q-82 -26 -77 -27 Q-73 -23 -68 -24 Q-64 -20 -60 -22"/>
+<path d="M-56 -30 C-70 -44 -92 -50 -106 -44 C-100 -36 -92 -33 -86 -30 Q-82 -26 -77 -27 Q-73 -23 -68 -24 Q-64 -20 -60 -22" transform="scale(1 -1)"/>
+<path d="M-72 -3 L-84 1 L-72 6"/>
+</g>
+<!-- ola 2 -->
+<g transform="translate(8 548) scale(.8)">
+<path d="M0 40 C30 38 52 10 84 4 C108 0 126 12 130 30 C122 22 110 22 104 30 C112 30 116 38 112 44"/>
+<path d="M90 42 C86 28 96 16 110 16"/>
+<path d="M112 44 L150 44"/>
+</g>
+<!-- burbujas -->
+<circle cx="170" cy="640" r="7"/>
+<path d="M166.2 640.4 Q166.2 636.5 169.7 635.9"/>
+<circle cx="186" cy="620" r="4"/>
+<circle cx="160" cy="616" r="3"/>
+<circle cx="300" cy="500" r="6"/>
+<path d="M296.7 500.3 Q296.7 497 299.7 496.5"/>
+<circle cx="312" cy="484" r="3.4"/>
+<!-- palmera -->
+<g transform="translate(318 640) rotate(4) scale(.92)">
+<path d="M0 0 C-10 70 10 150 -6 236"/>
+<path d="M16 2 C8 72 30 150 20 236"/>
+<path d="M-2.2 21.3 Q6.1 26.3 14.4 23.2"/>
+<path d="M-2.9 43.2 Q5.7 48.1 14.3 45"/>
+<path d="M-2.7 65.6 Q6.3 70.4 15.2 67.2"/>
+<path d="M-1.8 88.5 Q7.5 93.2 16.8 89.8"/>
+<path d="M-0.8 112 Q9 116.5 18.8 113"/>
+<path d="M0.1 135.9 Q10.4 140.3 20.6 136.6"/>
+<path d="M0.5 160.3 Q11.2 164.5 22 160.8"/>
+<path d="M-0.2 185.2 Q11.2 189.3 22.7 185.4"/>
+<path d="M-2.2 210.4 Q9.9 214.4 22.1 210.4"/>
+<circle cx="2" cy="-4" r="6"/>
+<circle cx="14" cy="-2" r="6"/>
+<circle cx="8" cy="6" r="6"/>
+<path d="M8 -8 Q-44 -42 -96 6"/>
+<path d="M-0.3 -12.9 Q-12.8 -5.5 -17.5 -7.3 L-16.4 -12.7 Q-20.7 -4.1 -25.5 -5.4 L-24.4 -12.6 Q-27.3 -2.6 -32.3 -3.4 L-31.9 -11.9 Q-33.1 -1.2 -38.1 -1.4 L-38.7 -10.8 Q-38.5 -0.1 -43.5 0.3 L-45.2 -9.4 Q-43.9 0.6 -48.8 1.6 L-51.7 -7.8 Q-49.8 1.1 -54.6 2.6 L-58.4 -6 Q-56.5 1.5 -61.1 3.5 L-65.4 -3.9 Q-64.4 2 -68.7 4.5 L-73.1 -1.2 Q-73.4 3 -77.5 5.8 L-81.3 2 Q-83.7 4.6 -87.6 7.7 L-90.3 5.9 L-96 6"/>
+<path d="M-8.3 -16.6 L-11.7 -8.3"/>
+<path d="M-24.2 -21.2 L-26.5 -7.2"/>
+<path d="M-40.2 -21.9 L-38.9 -5.5"/>
+<path d="M-56.1 -18.8 L-51.4 -3.9"/>
+<path d="M-72.1 -11.7 L-66.3 -1.4"/>
+<path d="M-88 -0.9 L-84.7 3.2"/>
+<path d="M8 -8 Q-32 -72 -72 -58"/>
+<path d="M1.6 -17.7 Q-14.1 -18.8 -17.1 -22.7 L-13.5 -26.8 Q-22.7 -23.1 -26 -26.9 L-21.2 -32.4 Q-30.1 -26.8 -33.7 -30.3 L-28.4 -37.1 Q-36.4 -29.9 -40.2 -33.1 L-34.9 -40.9 Q-41.6 -32.6 -45.7 -35.5 L-40.9 -44.1 Q-45.7 -35.2 -50.1 -37.6 L-46.2 -46.7 Q-49 -37.9 -53.7 -39.8 L-51.1 -48.8 Q-52 -41 -56.8 -42.2 L-55.8 -50.7 Q-55.1 -44.6 -60.1 -45.1 L-60.4 -52.3 Q-59.1 -48.6 -64.1 -48.3 L-65.4 -53.6 Q-64.5 -52.8 -69.4 -51.9 L-71 -54.7 L-72 -58"/>
+<path d="M-4.5 -26.1 L-11.7 -20.6"/>
+<path d="M-16.8 -40.2 L-26.8 -30.1"/>
+<path d="M-29.1 -50.6 L-38.4 -37.1"/>
+<path d="M-41.3 -57.3 L-47.1 -42.8"/>
+<path d="M-53.6 -60.3 L-54.8 -48.5"/>
+<path d="M-65.9 -59.7 L-64.8 -54.5"/>
+<path d="M8 -8 Q1 -93.6 -6 -94"/>
+<path d="M6.9 -21.2 Q-6.2 -31.6 -6.7 -36.5 L-1.4 -38.1 Q-11.1 -41.6 -11.7 -46.6 L-4.6 -48.3 Q-15.1 -50.7 -15.7 -55.6 L-7.4 -57.6 Q-18.1 -58.7 -18.8 -63.7 L-9.6 -65.9 Q-20.1 -65.7 -20.9 -70.7 L-11.3 -73.2 Q-21.1 -71.8 -22 -76.7 L-12.4 -79.4 Q-21 -76.9 -22 -81.8 L-13.1 -84.7 Q-19.9 -80.9 -21.2 -85.8 L-13.2 -88.9 Q-17.7 -84.1 -19.3 -88.8 L-13 -92.1 Q-14.4 -86.4 -16.7 -90.8 L-12.4 -94.2 Q-9.8 -88.5 -13.4 -92 L-11.9 -94.9 L-6 -94"/>
+<path d="M5.8 -32.7 L-3.2 -31.9"/>
+<path d="M3.7 -52.9 L-10.4 -51.2"/>
+<path d="M1.5 -69 L-14.7 -66.6"/>
+<path d="M-0.6 -81.2 L-15.9 -77.9"/>
+<path d="M-2.8 -89.3 L-14 -85.4"/>
+<path d="M-4.9 -93.4 L-8.6 -89.7"/>
+<path d="M8 -8 Q37 -86.4 66 -82"/>
+<path d="M12.6 -20 Q28.1 -25.6 30.2 -30.2 L25.6 -33.3 Q35.9 -33 38.1 -37.5 L32.1 -41.6 Q42.5 -39.5 45 -43.9 L38 -48.9 Q48.1 -45.2 50.8 -49.4 L43.3 -55.2 Q52.6 -50 55.5 -54.1 L48.1 -60.7 Q55.9 -54.3 59.1 -58.1 L52.3 -65.2 Q58.1 -58.1 61.7 -61.5 L56 -69 Q59.2 -61.7 63.3 -64.6 L59.1 -72.1 Q59.8 -65.5 64.2 -67.8 L61.9 -74.6 Q60.4 -70 65.2 -71.3 L64.7 -76.8 Q62 -75.2 67 -75.5 L67.8 -78.8 L66 -82"/>
+<path d="M17.1 -30.5 L25.4 -26.9"/>
+<path d="M26 -48.7 L38.4 -41.8"/>
+<path d="M34.9 -62.9 L48.2 -53.2"/>
+<path d="M43.8 -73.2 L54.5 -61.8"/>
+<path d="M52.7 -79.6 L58 -69.1"/>
+<path d="M61.6 -82.2 L61.9 -77"/>
+<path d="M8 -8 Q60 -54 112 -28"/>
+<path d="M16.3 -14.9 Q31 -10.6 35.2 -13.4 L33 -18.5 Q40.1 -11.6 44.4 -14.1 L41.8 -20.8 Q48.1 -12.4 52.6 -14.5 L50 -22.6 Q55.1 -13.1 59.8 -14.7 L57.7 -23.9 Q61.4 -13.9 66.2 -15.1 L64.9 -24.9 Q67.1 -15 72.1 -15.7 L71.7 -25.6 Q72.8 -16.5 77.8 -16.7 L78.5 -26.1 Q78.7 -18.4 83.7 -18.1 L85.3 -26.4 Q85.3 -20.6 90.2 -19.7 L92.4 -26.5 Q92.8 -22.9 97.6 -21.5 L100 -26.3 Q101.5 -25.1 106.1 -23.2 L108.2 -25.8 L112 -28"/>
+<path d="M24.3 -20.6 L29.3 -13.1"/>
+<path d="M40.2 -29.6 L46.1 -16.7"/>
+<path d="M56.2 -35.2 L60.1 -19.2"/>
+<path d="M72.1 -37.4 L72.6 -21.7"/>
+<path d="M88.1 -36.2 L86 -24.5"/>
+<path d="M104 -31.6 L102.1 -26.7"/>
+<path d="M8 -8 Q-16 -42 -40 32"/>
+<path d="M4.2 -12.7 Q-6.5 -6.2 -10.6 -9.1 L-8.3 -14.1 Q-8.7 -3 -13.4 -4.7 L-11.9 -11.8 Q-7.3 0.2 -12.3 0.1 L-13.1 -8.4 Q-4.1 1.7 -8.9 3.3 L-12.7 -5.4 Q-2.1 1.9 -6.2 4.7 L-12.5 -3 Q-2.4 2.1 -5.9 5.7 L-13.6 -0.5 Q-4.8 3.5 -7.8 7.5 L-15.9 2.8 Q-9.1 6.3 -11.6 10.6 L-19.4 7.2 Q-14.8 10.6 -17 15.1 L-23.8 12.9 Q-21.7 16.4 -23.6 21 L-28.9 19.9 Q-29.8 23.7 -31.5 28.4 L-34.8 28.2 L-40 32"/>
+<path d="M0.5 -16 L-4.8 -8.6"/>
+<path d="M-6.9 -18.7 L-7.2 -4.5"/>
+<path d="M-14.2 -16.3 L-5.1 -2.7"/>
+<path d="M-21.6 -8.9 L-9 0.4"/>
+<path d="M-29 3.7 L-18.3 8.9"/>
+<path d="M-36.3 21.3 L-31.4 23.1"/>
+<path d="M8 -8 Q43 -42 78 26"/>
+<path d="M13.6 -12.8 Q24.5 -5.4 28.9 -7.7 L27.3 -13 Q28.8 -3 33.6 -4.4 L32.5 -11.6 Q31 -0.4 36 -0.8 L36.4 -9.3 Q31.9 1.6 36.8 2.4 L39.2 -6.8 Q32.7 2.9 37.4 4.6 L41.8 -4.2 Q34.5 3.8 38.8 6.3 L44.7 -1.6 Q37.9 4.9 41.8 8.1 L48.5 1.5 Q42.9 6.9 46.4 10.5 L53.2 5.4 Q49.5 9.9 52.6 13.8 L58.8 10.2 Q57.4 14.2 60.2 18.3 L65.2 16.2 Q66.6 19.7 69.1 24 L72.3 23.3 L78 26"/>
+<path d="M19 -16.1 L23.1 -8.1"/>
+<path d="M29.7 -19.3 L30.7 -5.1"/>
+<path d="M40.4 -17.6 L34.6 -2.3"/>
+<path d="M51.2 -11.1 L41.2 0.9"/>
+<path d="M61.9 0.1 L52.6 7.4"/>
+<path d="M72.6 16.2 L68.1 18.8"/>
+<path d="M-22 238 Q-14 226 -10 236 M-6 238 Q-2 220 4 236 M12 238 Q18 224 24 238 M28 238 Q36 228 40 238"/>
+<path d="M-30 240 L48 240"/>
+</g>
+<!-- estrella grande -->
+<g transform="translate(76 760) rotate(10) scale(.78)">
+<path d="M-14.1 -19.4 Q-7.4 -33.3 -4.3 -61.8 Q0 -67 4.3 -61.8 Q7.4 -33.3 14.1 -19.4 Q29.3 -17.4 57.5 -23.2 Q63.7 -20.7 60.2 -15 Q33.9 -3.2 22.8 7.4 Q25.6 22.5 39.9 47.5 Q39.4 54.2 32.8 52.6 Q13.5 31.3 0 24 Q-13.5 31.3 -32.8 52.6 Q-39.4 54.2 -39.9 47.5 Q-25.6 22.5 -22.8 7.4 Q-33.9 -3.2 -60.2 -15 Q-63.7 -20.7 -57.5 -23.2 Q-29.3 -17.4 -14.1 -19.4 Z"/>
+<circle cx="0" cy="0" r="3.4"/>
+<circle cx="0" cy="-12" r="2.8"/>
+<circle cx="0" cy="-21" r="2.5"/>
+<circle cx="0" cy="-30" r="2.2"/>
+<circle cx="0" cy="-39" r="1.8"/>
+<circle cx="0" cy="-47" r="1.4"/>
+<circle cx="0" cy="-54" r="1.0"/>
+<circle cx="11.4" cy="-3.7" r="2.8"/>
+<circle cx="20" cy="-6.5" r="2.5"/>
+<circle cx="28.5" cy="-9.3" r="2.2"/>
+<circle cx="37.1" cy="-12.1" r="1.8"/>
+<circle cx="44.7" cy="-14.5" r="1.4"/>
+<circle cx="51.4" cy="-16.7" r="1.0"/>
+<circle cx="7.1" cy="9.7" r="2.8"/>
+<circle cx="12.3" cy="17" r="2.5"/>
+<circle cx="17.6" cy="24.3" r="2.2"/>
+<circle cx="22.9" cy="31.6" r="1.8"/>
+<circle cx="27.6" cy="38" r="1.4"/>
+<circle cx="31.7" cy="43.7" r="1.0"/>
+<circle cx="-7.1" cy="9.7" r="2.8"/>
+<circle cx="-12.3" cy="17" r="2.5"/>
+<circle cx="-17.6" cy="24.3" r="2.2"/>
+<circle cx="-22.9" cy="31.6" r="1.8"/>
+<circle cx="-27.6" cy="38" r="1.4"/>
+<circle cx="-31.7" cy="43.7" r="1.0"/>
+<circle cx="-11.4" cy="-3.7" r="2.8"/>
+<circle cx="-20" cy="-6.5" r="2.5"/>
+<circle cx="-28.5" cy="-9.3" r="2.2"/>
+<circle cx="-37.1" cy="-12.1" r="1.8"/>
+<circle cx="-44.7" cy="-14.5" r="1.4"/>
+<circle cx="-51.4" cy="-16.7" r="1.0"/>
+</g>
+  </svg>
+</div>
+
+<header class="barra">
+  <div class="marca">
+    <svg width="34" height="34" viewBox="-48 -44 116 88" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <ellipse cx="0" cy="0" rx="40" ry="31"/>
+      <path d="M-15 -11 L0 -19 L15 -11 L15 9 L0 17 L-15 9 Z"/>
+      <path d="M40 0 q5 -9 12 -8 q8 2 8 8 q0 6 -8 8 q-7 1 -12 -8"/>
+      <path d="M22 -25 l10 -12 M22 25 l10 12 M-24 -24 l-9 -10 M-24 24 l-9 10"/>
+    </svg>
+    <div>
+      <h1>MyoTurtle</h1>
+      <p id="subtitulo"><span class="punto" id="punto"></span><span id="estadoConexion">Sin conectar</span></p>
+    </div>
+  </div>
+  <button class="btn btn-prim" id="btnConectar" type="button">Conectar</button>
+  <div class="indicadores" id="indicadores" hidden>
+    <span class="indicador"><span class="led" id="ledWifi" role="img" aria-label="WiFi desconectado" title="WiFi desconectado"></span>WiFi</span>
+    <span class="indicador"><span class="led" id="ledFb" role="img" aria-label="Firebase sin guardar" title="Firebase sin guardar"></span>Firebase</span>
+  </div>
+  <p class="aviso-conexion" id="avisoConexion">
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="10" r="8"/><path d="M10 9v5M10 6.2v.1"/></svg>
+    <span>Para ver los datos y realizar cambios se requiere conectar la tortuga.</span>
+  </p>
+</header>
+
+<main>
+  <!-- ============ Señal ============ -->
+  <section class="vista" id="vista-senal" role="tabpanel" aria-labelledby="tab-senal">
+    <div class="guia" id="guia" hidden></div>
+
+    <div class="lectura">
+      <div class="lectura-v num" aria-live="off"><span id="vSenal">–</span><small>V</small></div>
+      <div class="lectura-pct"><b class="num" id="vPct">–</b>del máximo</div>
+    </div>
+    <div class="estado-linea">
+      <span class="chip" id="chipModo">Modo –</span>
+      <span class="chip" id="chipEstado">Esperando datos</span>
+      <span class="chip" id="chipContr" hidden>Contrayendo</span>
+    </div>
+
+    <div class="grafica">
+      <canvas id="lienzo" aria-label="Gráfica de la señal EMG de los últimos 10 segundos" role="img"></canvas>
+      <div class="leyenda">
+        <span style="--c:var(--turq)">Señal</span>
+        <span class="dash" style="--c:var(--tinta2)">Reposo</span>
+        <span class="dash" style="--c:var(--coral)">Umbral de activación</span>
+        <span class="dash" style="--c:var(--lav)">Máximo</span>
+        <span class="banda" id="leyBanda" style="--c:var(--agua)" hidden>Banda objetivo</span>
+      </div>
+      <div class="vacio" id="vacio">
+        <p id="vacioTxt">Conecta la tortuga para ver la señal en vivo.</p>
+        <div class="fila">
+          <button class="btn btn-prim" type="button" id="btnConectar2">Conectar tortuga</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="vista-tipo">
+      <p class="vista-tipo-cab" id="tVistaSenal">Vista de señal</p>
+      <div class="segmentado" role="group" aria-labelledby="tVistaSenal">
+        <button type="button" data-vista-senal="original" aria-pressed="false">Original</button>
+        <button type="button" data-vista-senal="ajustada" aria-pressed="false">Ajustada</button>
+      </div>
+      <p class="desc-modo" id="descVistaSenal"></p>
+    </div>
+
+    <div class="tortuga">
+      <div class="tortuga-cab"><span id="tortugaTit">Grupos encendidos</span><b class="num" id="tortugaVal">0 de 7</b></div>
+      <div class="segs" id="segs"></div>
+      <div class="sets" id="filaSets" hidden>
+        <span>Sets completados<small>Un set se completa al llenar los 7 grupos</small></span>
+        <b class="num" id="vSets">0</b>
+      </div>
+    </div>
+
+    <dl class="valores">
+      <div><dt>Máximo estimado</dt><dd class="num"><span id="vMax">–</span><small>V</small></dd></div>
+      <div><dt>Reposo</dt><dd class="num"><span id="vReposo">–</span><small>V</small></dd></div>
+      <div><dt>Umbral de activación</dt><dd class="num"><span id="vUmbral">–</span><small>V</small></dd></div>
+      <div><dt>Contracciones</dt><dd class="num" id="vContr">–</dd></div>
+      <div><dt id="tUltima">Última contracción</dt><dd class="num"><span id="vDur">–</span><small>s</small> <small id="vPico"></small></dd></div>
+      <div><dt id="tSexto">Nivel sostenido</dt><dd class="num"><span id="vSexto">–</span><small id="uSexto">V</small></dd></div>
+    </dl>
+  </section>
+
+  <!-- ============ Ajustes ============ -->
+  <section class="vista" id="vista-ajustes" role="tabpanel" aria-labelledby="tab-ajustes" hidden>
+
+    <div class="bloque">
+      <h2>Modo de juego</h2>
+      <div class="segmentado" role="group" aria-label="Modo de juego">
+        <button type="button" data-modo="0" aria-pressed="false">Libre</button>
+        <button type="button" data-modo="1" aria-pressed="false">Sostener</button>
+      </div>
+      <p class="desc-modo" id="descModo"></p>
+    </div>
+
+    <div class="bloque">
+      <h2>Calibración</h2>
+      <p class="ayuda">Vuelve a medir el reposo y la contracción máxima del niño, igual que la pulsación corta del botón de la tortuga. Los pasos se avanzan con el botón de la tortuga o desde la pestaña Señal.</p>
+      <button class="btn btn-sec btn-ancho" id="btnCalibrar" type="button">Calibrar de nuevo</button>
+      <p class="desc-modo" id="calibEstado" hidden>Calibrando: sigue los pasos en la pestaña Señal.</p>
+    </div>
+
+    <div class="bloque">
+      <h2>Umbral mínimo de activación</h2>
+      <p class="ayuda">Solo para el modo sostener. Es el esfuerzo mínimo, en porcentaje del máximo del niño, para que la contracción empiece a llenar la tortuga.</p>
+      <div class="deslizador">
+        <input type="range" id="rBanda" min="20" max="75" step="5" value="40" aria-label="Umbral mínimo de activación, en porcentaje del máximo">
+        <output id="oBanda" class="num" for="rBanda">40<small> %</small></output>
+      </div>
+      <div class="mini-banda" aria-hidden="true"><i class="sale" id="mbSale"></i><i id="mbEntra"></i></div>
+      <p class="banda-txt" id="bandaTxt"></p>
+    </div>
+
+    <div class="bloque">
+      <h2>Volumen de la bocina</h2>
+      <p class="ayuda" id="ayudaVol">De 0 a 30. El cambio se escucha de inmediato.</p>
+      <div class="deslizador">
+        <input type="range" id="rVol" min="0" max="30" step="1" value="10" aria-label="Volumen de la bocina">
+        <output id="oVol" class="num" for="rVol">10</output>
+      </div>
+    </div>
+
+    <div class="bloque">
+      <h2>Colores de cada modo</h2>
+      <p class="ayuda">El color con el que la tortuga anuncia el modo y el de su anillo durante el juego. Elige el que más le guste al niño; al cambiar el del modo activo, la tortuga lo muestra.</p>
+      <div class="colores-modo">
+        <h3>Modo libre <span id="nomColor0"></span></h3>
+        <div class="muestras" data-colmodo="0"></div>
+      </div>
+      <div class="colores-modo">
+        <h3>Modo sostener <span id="nomColor1"></span></h3>
+        <div class="muestras" data-colmodo="1"></div>
+      </div>
+    </div>
+    <p class="nota">Los ajustes se guardan en la tortuga. El botón de la tortuga sigue funcionando igual: pulsación larga para cambiar de modo y corta para recalibrar.</p>
+    <p class="nota">Versión 4 de la página</p>
+  </section>
+
+  <!-- ============ Datos ============ -->
+  <section class="vista" id="vista-datos" role="tabpanel" aria-labelledby="tab-datos" hidden>
+
+    <div class="bloque">
+      <h2>Grabación automática</h2>
+      <p class="ayuda">La señal se guarda sola en cuanto termina la calibración y la tortuga empieza a jugar. Al terminar la sesión queda en "Sesiones guardadas", lista para descargar y analizar en Excel.</p>
+      <p class="desc-modo dt-estado" id="dtEstado">Conecta la tortuga para poder grabar.</p>
+    </div>
+
+    <dl class="valores">
+      <div><dt>Muestras registradas</dt><dd class="num" id="dtFilas">0</dd></div>
+      <div><dt>Tiempo grabado</dt><dd class="num" id="dtTiempo">0:00</dd></div>
+    </dl>
+
+    <div class="bloque" id="dtBloqueSesiones">
+      <h2>Sesiones guardadas</h2>
+      <p class="ayuda">Quedan guardadas en este dispositivo para que puedas descargarlas cuando quieras, aunque cierres la página.</p>
+      <div id="dtLista"></div>
+    </div>
+
+    <div class="bloque" id="dtBloqueCarpeta" hidden>
+      <h2>Carpeta de destino</h2>
+      <p class="ayuda">En computadora (Chrome o Edge) puedes elegir la carpeta donde se guardan los archivos, por ejemplo una carpeta compartida de OneDrive o Google Drive.</p>
+      <button class="btn btn-sec btn-ancho" id="dtCarpetaBtn" type="button">Elegir carpeta</button>
+      <p class="desc-modo" id="dtCarpeta">Sin carpeta elegida: el archivo se descarga en la carpeta de Descargas.</p>
+    </div>
+
+    <p class="nota">El archivo se llama MyoTurtle_ seguido de un número que identifica la fecha y hora de inicio de la sesión.</p>
+  </section>
+</main>
+
+<nav class="pestanas" role="tablist" aria-label="Secciones">
+  <button type="button" role="tab" id="tab-senal" aria-controls="vista-senal" aria-selected="true" data-vista="senal">
+    <svg viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 15h4l2.5-7 4 13 3.5-10 2 4H24"/></svg>
+    Señal
+  </button>
+  <button type="button" role="tab" id="tab-ajustes" aria-controls="vista-ajustes" aria-selected="false" data-vista="ajustes">
+    <svg viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h11M19 7h3M4 13h3M11 13h11M4 19h9M17 19h5"/><circle cx="17" cy="7" r="2"/><circle cx="9" cy="13" r="2"/><circle cx="15" cy="19" r="2"/></svg>
+    Ajustes
+  </button>
+  <button type="button" role="tab" id="tab-datos" aria-controls="vista-datos" aria-selected="false" data-vista="datos">
+    <svg viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 4v12M8 11.5l5 5 5-5M5 21h16"/></svg>
+    Datos
+  </button>
+</nav>
+
+<div class="aviso" id="aviso" role="status" aria-live="polite"></div>
+
+<script>
+try { (function () {
+"use strict";
+
+// ====== Debe coincidir con el firmware (MyoTurtle_1.ino) ======
+const UUID = {
+  servicio: "6e7a0001-5d1c-4b8e-9a3f-7c2b1d0e4a10",
+  datos:    "6e7a0002-5d1c-4b8e-9a3f-7c2b1d0e4a10",
+  config:   "6e7a0003-5d1c-4b8e-9a3f-7c2b1d0e4a10",
+  comando:  "6e7a0004-5d1c-4b8e-9a3f-7c2b1d0e4a10"
+};
+const CMD = { MODO: 1, VOLUMEN: 2, BANDA: 3, COLOR: 4, CALIBRAR: 5, CONTINUAR: 6 };
+// Mismo orden que PALETA_GRUPOS / PALETA_TRI del firmware (g = color de los grupos, t = color del anillo)
+const PALETA = [
+  { nombre: "Turquesa",      g: "#1FBFAA", t: "#0F7E70" },
+  { nombre: "Azul océano",   g: "#2A9FE8", t: "#2448D8" },
+  { nombre: "Lavanda",       g: "#9A62F0", t: "#6A2BE0" },
+  { nombre: "Rosa",          g: "#EC3F82", t: "#D81B3C" },
+  { nombre: "Coral",         g: "#F2643F", t: "#D9381E" },
+  { nombre: "Amarillo sol",  g: "#F4BC1C", t: "#EE7F14" },
+  { nombre: "Verde alga",    g: "#48C45E", t: "#16893A" },
+  { nombre: "Blanco espuma", g: "#FFFFFF", t: "#93AEF5" }
+];
+// Colores de los 7 grupos de la tortuga (arcoíris del firmware, suavizado para pantalla)
+const COLOR_GRUPO = ["#E2574C", "#EC8436", "#E9BC2E", "#4FB565", "#3DAFD8", "#4467D6", "#8B5AD6"];
+const MODOS = ["Libre", "Sostener"];
+const DESC_MODO = [
+  "Indicador de fuerza: los grupos se encienden según la intensidad de la contracción.",
+  "El niño mantiene la contracción dentro de la banda objetivo para llenar los 7 grupos de la tortuga."
+];
+const ESTADOS = ["Jugando", "Calibrando", "Calibrando", "Calibrando", "Calibrando", "Calibrando", "¡Victoria!"];
+// [título, texto, botón para avanzar (o null)]
+const GUIAS = [
+  null,
+  ["Calibración: reposo", "Pide al niño que relaje la mano. Después presiona el botón de la tortuga o toca Medir reposo.", "Medir reposo"],
+  ["Midiendo el reposo", "La mano debe quedarse relajada unos segundos.", null],
+  ["Calibración: contracción", "Cuando el niño esté listo para cerrar la mano con fuerza, presiona el botón de la tortuga o toca Empezar contracción.", "Empezar contracción"],
+  ["Prepárate", "La tortuga marca rojo y amarillo antes de empezar.", null],
+  ["Verde: contraer", "El niño cierra la mano y la mantiene 2 segundos.", null],
+  null
+];
+const VENTANA_MS = 10000;
+const FRACCION = [0, 0.30, 0.40, 0.55, 0.65, 0.75, 0.80];
+
+// ====== Estado ======
+let st = null;                      // último paquete de datos
+let cfg = { modo: 0, vol: 10, banda: 40, color: [1, 3], audio: true };
+let tieneConfig = false;
+let conexion = "off";               // off | buscando | conectando | on | reconectando | demo
+const hist = [];                    // {t, v}
+let contr = { activa: false, t0: 0, pico: 0, dur: null, ultPico: null };
+let ultimoPaquete = 0;
+
+const $ = id => document.getElementById(id);
+
+// ====== Pestañas ======
+document.querySelectorAll(".pestanas button").forEach(b => b.addEventListener("click", () => mostrarVista(b.dataset.vista)));
+function mostrarVista(v) {
+  document.querySelectorAll(".pestanas button").forEach(b => b.setAttribute("aria-selected", b.dataset.vista === v ? "true" : "false"));
+  $("vista-senal").hidden = v !== "senal";
+  $("vista-ajustes").hidden = v !== "ajustes";
+  $("vista-datos").hidden = v !== "datos";
+  window.scrollTo(0, 0);
+}
+
+// ====== Avisos ======
+let tAviso = 0;
+function aviso(txt) {
+  const a = $("aviso");
+  a.textContent = txt;
+  a.classList.add("ver");
+  clearTimeout(tAviso);
+  tAviso = setTimeout(() => a.classList.remove("ver"), 2200);
+}
+
+// ====== Bluetooth ======
+let dispositivo = null, chDatos = null, chConfig = null, chComando = null;
+let desconexionManual = false, intentos = 0;
+
+// Indicadores de WiFi y Firebase: banderas b5 (32) y b6 (64) del byte 3 del paquete de datos
+let redPrevia = -1;
+function ponerLed(id, ok, txtOk, txtNo) {
+  const el = $(id);
+  el.classList.toggle("ok", ok);
+  el.title = ok ? txtOk : txtNo;
+  el.setAttribute("aria-label", el.title);
+}
+function pintarRed(flags) {
+  const r = flags & 96;
+  if (r === redPrevia) return;                      // solo se repinta cuando algo cambia
+  redPrevia = r;
+  ponerLed("ledWifi", !!(flags & 32), "WiFi conectado", "WiFi desconectado");
+  ponerLed("ledFb",   !!(flags & 64), "Firebase guardando", "Firebase sin guardar");
+}
+
+function setConexion(c) {
+  conexion = c;
+  const txt = { off: "Sin conectar", buscando: "Buscando…", conectando: "Conectando…", on: "Conectada",
+                reconectando: "Reconectando…", demo: "Datos simulados" }[c];
+  $("estadoConexion").textContent = (c === "on" && dispositivo && dispositivo.name) ? "Conectada a " + dispositivo.name : txt;
+  $("punto").className = "punto" + (c === "on" || c === "demo" ? " on" : (c === "reconectando" ? " esp" : ""));
+  const b = $("btnConectar");
+  b.textContent = (c === "on" || c === "demo" || c === "reconectando") ? (c === "demo" ? "Salir de prueba" : "Desconectar") : "Conectar";
+  b.className = "btn " + ((c === "on" || c === "demo" || c === "reconectando") ? "btn-sec" : "btn-prim");
+  b.disabled = (c === "buscando" || c === "conectando");
+  $("vacio").hidden = (c === "on" || c === "demo");
+  $("avisoConexion").hidden = (c === "on" || c === "demo");
+  $("indicadores").hidden = !(c === "on" || c === "demo");
+  if (!(c === "on" || c === "demo")) pintarRed(0);   // sin tortuga: se reinician en rojo
+  bloquearAjustes(!(c === "on" || c === "demo") || !tieneConfig);
+}
+
+async function conectar() {
+  if (!navigator.bluetooth) {
+    $("vacioTxt").textContent = "Este navegador no tiene Bluetooth web. En iPhone abre la página en Bluefy; en Android, en Chrome.";
+    aviso("Bluetooth web no disponible en este navegador");
+    return;
+  }
+  detenerDemo();
+  try {
+    setConexion("buscando");
+    dispositivo = await navigator.bluetooth.requestDevice({
+      filters: [{ services: [UUID.servicio] }, { namePrefix: "MyoTurtle" }, { namePrefix: "Tortuga" }],   // "Tortuga": firmware anterior
+      optionalServices: [UUID.servicio]
+    });
+    dispositivo.addEventListener("gattserverdisconnected", alDesconectar);
+    desconexionManual = false;
+    await abrirGatt();
+  } catch (e) {
+    setConexion("off");
+    if (e && e.name === "NotFoundError") return;   // el terapeuta cerró la lista
+    aviso("No se pudo conectar. Revisa que la tortuga esté encendida.");
+    console.error(e);
+  }
+}
+
+async function abrirGatt() {
+  setConexion("conectando");
+  const srv = await dispositivo.gatt.connect();
+  const svc = await srv.getPrimaryService(UUID.servicio);
+  chDatos = await svc.getCharacteristic(UUID.datos);
+  chConfig = await svc.getCharacteristic(UUID.config);
+  chComando = await svc.getCharacteristic(UUID.comando);
+  chConfig.addEventListener("characteristicvaluechanged", e => alConfig(e.target.value));
+  chDatos.addEventListener("characteristicvaluechanged", e => alDatos(e.target.value));
+  alConfig(await chConfig.readValue());
+  await chConfig.startNotifications();
+  await chDatos.startNotifications();
+  intentos = 0;
+  hist.length = 0;
+  setConexion("on");
+  aviso("Tortuga conectada");
+}
+
+function alDesconectar() {
+  chDatos = chConfig = chComando = null;
+  if (desconexionManual || !dispositivo) { setConexion("off"); return; }
+  setConexion("reconectando");
+  reintentar();
+}
+
+async function reintentar() {
+  if (intentos >= 5) { setConexion("off"); aviso("Se perdió la conexión con la tortuga"); return; }
+  intentos++;
+  await new Promise(r => setTimeout(r, 800 * intentos));
+  if (desconexionManual || !dispositivo) return;
+  try { await abrirGatt(); } catch (e) { reintentar(); }
+}
+
+function desconectar() {
+  desconexionManual = true;
+  if (dispositivo && dispositivo.gatt.connected) dispositivo.gatt.disconnect();
+  setConexion("off");
+}
+
+// Las escrituras van en cola: el Bluetooth solo admite una operación a la vez
+let cola = Promise.resolve();
+function enviar(bytes, textoOk) {
+  if (conexion === "demo") { demoAplicar(bytes); if (textoOk) aviso(textoOk); return; }
+  if (!chComando) { aviso("La tortuga no está conectada"); return; }
+  const datos = new Uint8Array(bytes);
+  cola = cola.then(() => (chComando.writeValueWithResponse ? chComando.writeValueWithResponse(datos) : chComando.writeValue(datos)))
+             .then(() => { if (textoOk) aviso(textoOk); })
+             .catch(e => { console.error(e); aviso("No se pudo enviar el ajuste. Intenta de nuevo."); });
+}
+
+$("btnConectar").addEventListener("click", () => {
+  if (conexion === "demo") { detenerDemo(); setConexion("off"); return; }
+  if (conexion === "on" || conexion === "reconectando") desconectar(); else conectar();
+});
+$("btnConectar2").addEventListener("click", conectar);
+
+// ====== Paquetes ======
+function alConfig(dv) {
+  if (!dv || dv.byteLength < 6 || dv.getUint8(0) !== 0xC1) return;
+  cfg = { modo: dv.getUint8(1), vol: dv.getUint8(2), banda: dv.getUint8(3),
+          color: [dv.getUint8(4), dv.getUint8(5)], audio: dv.byteLength > 6 ? !!dv.getUint8(6) : true };
+  tieneConfig = true;
+  pintarAjustes();
+  bloquearAjustes(!(conexion === "on" || conexion === "demo"));
+}
+
+function alDatos(dv) {
+  if (!dv || dv.byteLength < 20 || dv.getUint8(0) !== 0xD1) return;
+  procesar({
+    modo: dv.getUint8(1), estado: dv.getUint8(2), flags: dv.getUint8(3),
+    senal: dv.getUint16(4, true) / 1000, sost: dv.getUint16(6, true) / 1000,
+    reposo: dv.getUint16(8, true) / 1000, max: dv.getUint16(10, true) / 1000, umbral: dv.getUint16(12, true) / 1000,
+    grupos: dv.getUint8(14), llenos: dv.getUint8(15), prog: dv.getUint8(16) / 255,
+    sets: dv.getUint8(17), contr: dv.getUint16(18, true)
+  });
+}
+
+function procesar(d) {
+  registrarSesion(d);                                // pestana Datos: graba la muestra si hay una grabacion en curso
+  const t = performance.now();
+  ultimoPaquete = t;
+  if (st && d.modo !== st.modo && d.modo !== cfg.modo) { cfg.modo = d.modo; pintarAjustes(); } // cambio con el botón
+  if (st && d.sets > st.sets) aviso("¡Set completado!");
+  st = d;
+  pintarRed(d.flags);
+  hist.push({ t, v: d.senal });
+  while (hist.length && hist[0].t < t - VENTANA_MS - 1500) hist.shift();
+
+  const enC = !!(d.flags & 1);
+  if (enC && !contr.activa) { contr.activa = true; contr.t0 = t; contr.pico = d.senal; }
+  else if (enC) { contr.pico = Math.max(contr.pico, d.senal); }
+  else if (!enC && contr.activa) { contr.activa = false; contr.dur = (t - contr.t0) / 1000; contr.ultPico = contr.pico; }
+  pintarDatos();
+}
+
+// ====== Vista de señal ======
+let guiaMostrada = -1;
+$("guia").addEventListener("click", e => {
+  const b = e.target.closest("#btnContinuar");
+  if (!b) return;
+  b.disabled = true;                                 // un toque por paso
+  enviar([CMD.CONTINUAR, 0]);
+});
+const segs = $("segs");
+COLOR_GRUPO.forEach(c => { const s = document.createElement("div"); s.className = "seg"; s.innerHTML = `<i style="--c:${c}"></i>`; segs.appendChild(s); });
+
+const f3 = v => (v == null || isNaN(v)) ? "–" : v.toFixed(3);
+function rango(d) { return Math.max(d.max - d.reposo, 0.10); }
+
+// ---- Vista de señal: Original (voltaje medido) o Ajustada (se resta el reposo y se recorta en 0) ----
+const CLAVE_VISTA = "tortugaVistaSenal";
+let vistaSenalPref = "ajustada";                     // por defecto, ajustada
+try { const g = localStorage.getItem(CLAVE_VISTA); if (g === "original" || g === "ajustada") vistaSenalPref = g; } catch (e) {}
+function hayReposo() { return !!st && st.reposo > 0; }   // el reposo vale 0 hasta la primera calibración
+function vistaAjustada() { return vistaSenalPref === "ajustada" && hayReposo(); }
+function aVista(v) { return vistaAjustada() ? Math.max(0, v - st.reposo) : v; }
+
+function pintarVistaSenal() {
+  const hay = hayReposo(), aj = vistaAjustada();
+  document.querySelectorAll("[data-vista-senal]").forEach(b => {
+    b.disabled = !hay;
+    b.setAttribute("aria-pressed", (b.dataset.vistaSenal === "ajustada") === aj ? "true" : "false");
+  });
+  $("descVistaSenal").textContent = !hay ? "Ajustada estará disponible después de calibrar."
+    : aj ? `Se resta el reposo medido al calibrar (${f3(st.reposo)} V), así el reposo queda en 0.`
+         : "El voltaje tal como lo mide la tortuga, sin restar el reposo.";
+}
+document.querySelectorAll("[data-vista-senal]").forEach(b => b.addEventListener("click", () => {
+  vistaSenalPref = b.dataset.vistaSenal;
+  try { localStorage.setItem(CLAVE_VISTA, vistaSenalPref); } catch (e) {}
+  pintarVistaSenal();
+  pintarDatos();
+}));
+pintarVistaSenal();
+
+function pintarDatos() {
+  pintarVistaSenal();
+  const d = st; if (!d) return;
+  const pct = Math.max(0, Math.round((d.senal - d.reposo) / rango(d) * 100));
+  $("vSenal").textContent = f3(aVista(d.senal));
+  $("vPct").textContent = d.estado === 0 ? pct + " %" : "–";
+  $("vMax").textContent = f3(aVista(d.max));
+  $("vReposo").textContent = f3(d.reposo);
+  $("vUmbral").textContent = f3(aVista(d.umbral));
+  $("vContr").textContent = d.contr;
+
+  if (contr.activa) {
+    $("tUltima").textContent = "Contracción en curso";
+    $("vDur").textContent = ((performance.now() - contr.t0) / 1000).toFixed(1);
+    $("vPico").textContent = "pico " + f3(aVista(contr.pico)) + " V";
+  } else {
+    $("tUltima").textContent = "Última contracción";
+    $("vDur").textContent = contr.dur == null ? "–" : contr.dur.toFixed(1);
+    $("vPico").textContent = contr.ultPico == null ? "" : "pico " + f3(aVista(contr.ultPico)) + " V";
+  }
+
+  const sostener = d.modo === 1;
+  $("vSexto").textContent = f3(aVista(d.sost));
+  $("filaSets").hidden = !sostener;
+  $("vSets").textContent = d.sets;
+
+  $("chipModo").textContent = "Modo " + MODOS[d.modo].toLowerCase();
+  const ch = $("chipEstado");
+  let txt = ESTADOS[d.estado] || "–", clase = "chip";
+  if (d.estado === 0 && sostener) {
+    if (d.flags & 8) txt = "Esperando reposo";
+    else if (d.flags & 4) { txt = "En banda: llenando"; clase = "chip vivo"; }
+    else if (d.flags & 2) txt = "Entrando a la banda";
+    else txt = "Fuera de banda";
+  }
+  if (d.estado === 6) clase = "chip vivo";
+  if (d.estado >= 1 && d.estado <= 5) clase = "chip alerta";
+  ch.textContent = txt; ch.className = clase;
+  $("chipContr").hidden = !(d.flags & 1) || d.estado !== 0;
+  $("chipContr").className = "chip vivo";
+
+  if (d.estado !== guiaMostrada) {                  // solo se redibuja al cambiar de paso (si no, el botón no recibe toques)
+    guiaMostrada = d.estado;
+    const g = GUIAS[d.estado];
+    $("guia").hidden = !g;
+    if (g) $("guia").innerHTML = `<strong>${g[0]}</strong>${g[1]}` +
+      (g[2] ? `<br><button class="btn btn-prim" type="button" id="btnContinuar">${g[2]}</button>` : "");
+    actualizarCalibrar();
+  }
+
+  const is = segs.children;
+  if (sostener) {
+    const lleno = d.estado === 6 ? 7 : d.llenos;
+    $("tortugaTit").textContent = d.estado === 6 ? "Tortuga llena" : "Llenando la tortuga";
+    $("tortugaVal").textContent = lleno + " de 7";
+    for (let i = 0; i < 7; i++) is[i].firstChild.style.width = (i < lleno ? 100 : (i === lleno ? d.prog * 100 : 0)) + "%";
+  } else {
+    $("tortugaTit").textContent = "Grupos encendidos";
+    $("tortugaVal").textContent = d.grupos + " de 7";
+    for (let i = 0; i < 7; i++) is[i].firstChild.style.width = (i < d.grupos ? 100 : 0) + "%";
+  }
+  $("leyBanda").hidden = !sostener;
+}
+
+// ====== Gráfica ======
+const lienzo = $("lienzo"), ctx = lienzo.getContext("2d");
+let yMax = 1;
+function colores() {
+  const cs = getComputedStyle(document.documentElement);
+  const g = n => cs.getPropertyValue(n).trim();
+  return { turq: g("--turq"), agua: g("--agua"), coral: g("--coral"), lav: g("--lav"), tinta2: g("--tinta2"), linea: g("--linea") };
+}
+function pasoEje(max) { return max <= 0.6 ? 0.1 : max <= 1.2 ? 0.25 : max <= 2.5 ? 0.5 : 1; }
+
+function dibujar() {
+  try { dibujarCuadro(); } catch (e) { console.error(e); }
+  requestAnimationFrame(dibujar);
+}
+function dibujarCuadro() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = lienzo.clientWidth, h = lienzo.clientHeight;
+  if (lienzo.width !== Math.round(w * dpr) || lienzo.height !== Math.round(h * dpr)) {
+    lienzo.width = Math.round(w * dpr); lienzo.height = Math.round(h * dpr);
+  }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  const C = colores();
+  const L = 38, R = 8, T = 10, B = 20;
+  const ahora = performance.now();
+
+  const off = vistaAjustada() ? st.reposo : 0;        // en la vista ajustada todo se recorre hacia abajo el reposo
+  const val = v => Math.max(0, v - off);
+  let vis = 0;
+  for (const p of hist) if (p.t > ahora - VENTANA_MS && val(p.v) > vis) vis = val(p.v);
+  const objetivo = Math.max(0.5, st ? Math.max(val(st.max) * 1.25, val(st.umbral) * 1.4) : 1, vis * 1.1);
+  yMax += (objetivo - yMax) * 0.08;
+  const Y = v => T + (1 - v / yMax) * (h - T - B);
+  const X = t => L + (t - (ahora - VENTANA_MS)) / VENTANA_MS * (w - L - R);
+
+  // ejes
+  ctx.font = "11px Lexend, system-ui, sans-serif";
+  ctx.fillStyle = C.tinta2; ctx.strokeStyle = C.linea; ctx.lineWidth = 1;
+  ctx.textAlign = "right"; ctx.textBaseline = "middle";
+  const paso = pasoEje(yMax);
+  for (let v = 0; v <= yMax + 1e-6; v += paso) {
+    const y = Math.round(Y(v)) + 0.5;
+    ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(w - R, y); ctx.stroke();
+    ctx.fillText(v.toFixed(paso < 0.25 ? 1 : 2), L - 6, y);
+  }
+  ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+  for (let s = 0; s <= 10; s += 2) {
+    ctx.textAlign = s === 10 ? "right" : "center";
+    ctx.fillText(s === 10 ? "ahora" : "-" + (10 - s) + " s", s === 10 ? w - R : L + s / 10 * (w - L - R), h - 4);
+  }
+
+  if (st && st.estado === 0) {
+    const r = rango(st), base = st.reposo - off;
+    // banda objetivo del modo sostener
+    if (st.modo === 1) {
+      const b = cfg.banda / 100, e2 = Math.min(cfg.banda + 20, 95) / 100, s1 = Math.max(cfg.banda - 15, 10) / 100;
+      ctx.fillStyle = C.agua;
+      ctx.globalAlpha = 0.14; ctx.fillRect(L, Y(base + 0.99 * r), w - L - R, Y(base + s1 * r) - Y(base + 0.99 * r));
+      ctx.globalAlpha = 0.32; ctx.fillRect(L, Y(base + e2 * r), w - L - R, Y(base + b * r) - Y(base + e2 * r));
+      ctx.globalAlpha = 1;
+    }
+    linea(Y(base), C.tinta2, w, L, R);
+    linea(Y(st.umbral - off), C.coral, w, L, R);
+    linea(Y(st.max - off), C.lav, w, L, R);
+  }
+
+  // señal
+  const pts = hist.filter(p => p.t > ahora - VENTANA_MS - 200);
+  if (pts.length > 1) {
+    ctx.save();
+    ctx.beginPath(); ctx.rect(L, 0, w - L - R, h); ctx.clip();
+    ctx.beginPath();
+    pts.forEach((p, i) => i ? ctx.lineTo(X(p.t), Y(val(p.v))) : ctx.moveTo(X(p.t), Y(val(p.v))));
+    const grad = ctx.createLinearGradient(0, T, 0, h - B);
+    grad.addColorStop(0, C.turq); grad.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.lineTo(X(pts[pts.length - 1].t), Y(0)); ctx.lineTo(X(pts[0].t), Y(0)); ctx.closePath();
+    ctx.globalAlpha = 0.16; ctx.fillStyle = grad; ctx.fill(); ctx.globalAlpha = 1;
+    ctx.beginPath();
+    pts.forEach((p, i) => i ? ctx.lineTo(X(p.t), Y(val(p.v))) : ctx.moveTo(X(p.t), Y(val(p.v))));
+    ctx.strokeStyle = C.turq; ctx.lineWidth = 2.2; ctx.lineJoin = "round"; ctx.stroke();
+    ctx.restore();
+  }
+
+  // datos detenidos
+  if ((conexion === "on") && ultimoPaquete && ahora - ultimoPaquete > 2000) {
+    $("chipEstado").textContent = "Sin datos recientes"; $("chipEstado").className = "chip alerta";
+  }
+}
+function linea(y, color, w, L, R) {
+  ctx.save(); ctx.setLineDash([5, 5]); ctx.strokeStyle = color; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(w - R, y); ctx.stroke(); ctx.restore();
+}
+requestAnimationFrame(dibujar);
+
+// ====== Ajustes ======
+const rBanda = $("rBanda"), rVol = $("rVol");
+let arrastrando = false;
+
+function pctRango(r) { r.style.setProperty("--p", ((r.value - r.min) / (r.max - r.min) * 100) + "%"); }
+
+function textoBanda(p) {
+  const e2 = Math.min(p + 20, 95), s1 = Math.max(p - 15, 10);
+  $("oBanda").innerHTML = p + "<small> %</small>";
+  $("bandaTxt").textContent = `Empieza a contar entre ${p} % y ${e2} % del máximo. Una vez dentro, sigue contando mientras se mantenga entre ${s1} % y 99 %.`;
+  $("mbSale").style.left = s1 + "%"; $("mbSale").style.width = (99 - s1) + "%";
+  $("mbEntra").style.left = p + "%"; $("mbEntra").style.width = (e2 - p) + "%";
+}
+
+document.querySelectorAll(".muestras").forEach(cont => {
+  const m = +cont.dataset.colmodo;
+  PALETA.forEach((c, i) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "muestra"; b.dataset.idx = i;
+    b.setAttribute("aria-pressed", "false");
+    b.setAttribute("aria-label", `${c.nombre} para el modo ${MODOS[m].toLowerCase()}`);
+    b.innerHTML = `<span class="disco" style="--g:${c.g};--t:${c.t}"></span>${c.nombre}`;
+    b.addEventListener("click", () => {
+      if (cfg.color[m] === i) return;
+      cfg.color[m] = i; pintarAjustes();
+      enviar([CMD.COLOR, m, i], `${c.nombre} para el modo ${MODOS[m].toLowerCase()}`);
+    });
+    cont.appendChild(b);
+  });
+});
+
+document.querySelectorAll(".segmentado button[data-modo]").forEach(b => b.addEventListener("click", () => {
+  const m = +b.dataset.modo;
+  if (cfg.modo === m) return;
+  cfg.modo = m; pintarAjustes();
+  enviar([CMD.MODO, m], "Modo " + MODOS[m].toLowerCase());
+}));
+
+rBanda.addEventListener("input", () => { arrastrando = true; pctRango(rBanda); textoBanda(+rBanda.value); });
+rBanda.addEventListener("change", () => {
+  arrastrando = false; cfg.banda = +rBanda.value;
+  enviar([CMD.BANDA, cfg.banda], `Umbral de activación: ${cfg.banda} %`);
+});
+rVol.addEventListener("input", () => { arrastrando = true; pctRango(rVol); $("oVol").textContent = rVol.value; });
+rVol.addEventListener("change", () => {
+  arrastrando = false; cfg.vol = +rVol.value;
+  enviar([CMD.VOLUMEN, cfg.vol], `Volumen: ${cfg.vol}`);
+});
+
+function pintarAjustes() {
+  document.querySelectorAll(".segmentado button[data-modo]").forEach(b => b.setAttribute("aria-pressed", +b.dataset.modo === cfg.modo ? "true" : "false"));
+  $("descModo").textContent = DESC_MODO[cfg.modo] || "";
+  if (!arrastrando) {
+    rBanda.value = cfg.banda; pctRango(rBanda); textoBanda(cfg.banda);
+    rVol.value = cfg.vol; pctRango(rVol); $("oVol").textContent = cfg.vol;
+  }
+  $("ayudaVol").textContent = cfg.audio ? "De 0 a 30. El cambio se escucha de inmediato."
+                                        : "La tortuga no detectó el reproductor de audio (DFPlayer): revisa la tarjeta SD y las conexiones.";
+  document.querySelectorAll(".muestras").forEach(cont => {
+    const m = +cont.dataset.colmodo;
+    cont.querySelectorAll(".muestra").forEach(b => b.setAttribute("aria-pressed", +b.dataset.idx === cfg.color[m] ? "true" : "false"));
+    $("nomColor" + m).textContent = PALETA[cfg.color[m]] ? PALETA[cfg.color[m]].nombre : "";
+  });
+}
+
+let ajustesBloqueados = true;
+function bloquearAjustes(bloq) {
+  ajustesBloqueados = bloq;
+  document.querySelectorAll("#vista-ajustes button, #vista-ajustes input").forEach(el => el.disabled = bloq);
+  actualizarCalibrar();
+}
+
+let tConfirmarCal = 0;
+function restaurarCalibrar() {
+  clearTimeout(tConfirmarCal); tConfirmarCal = 0;
+  $("btnCalibrar").textContent = "Calibrar de nuevo";
+  $("btnCalibrar").classList.remove("confirmar");
+}
+function actualizarCalibrar() {
+  const calibrando = !!st && st.estado >= 1 && st.estado <= 5;
+  $("btnCalibrar").disabled = ajustesBloqueados || !st || calibrando || st.estado === 6;
+  $("calibEstado").hidden = !calibrando || ajustesBloqueados;
+  if ($("btnCalibrar").disabled) restaurarCalibrar();
+}
+$("btnCalibrar").addEventListener("click", () => {
+  if (!tConfirmarCal) {                             // primer toque: pide confirmación (evita recalibrar por accidente)
+    $("btnCalibrar").textContent = "Toca otra vez para confirmar";
+    $("btnCalibrar").classList.add("confirmar");
+    tConfirmarCal = setTimeout(restaurarCalibrar, 4000);
+    return;
+  }
+  restaurarCalibrar();
+  enviar([CMD.CALIBRAR, 0], "Calibración iniciada");
+  mostrarVista("senal");
+});
+
+pintarAjustes();
+bloquearAjustes(true);
+
+// ====== Pestaña Datos: grabar la sesión y guardarla como CSV (para Excel) ======
+// Cada fila: epoch_ms (hora del dispositivo), señal suavizada (V), nivel sostenido (V), grupos, máximo (V).
+// Solo se registran las muestras del estado "Jugando" (estado 0) de la tortuga real (no del modo de prueba).
+let grabando = false;
+let filasSesion = [];
+let inicioGrab = 0;
+const CLAVE_SES = "tortugaSesionesCSV";
+let sesiones = [];                  // [{ nombre, texto, filas, inicio, dur }], de la mas antigua a la mas reciente
+try { sesiones = JSON.parse(localStorage.getItem(CLAVE_SES) || "[]"); if (!Array.isArray(sesiones)) sesiones = []; } catch (e) { sesiones = []; }
+let carpetaDestino = null;          // carpeta elegida (solo navegadores de computadora que lo permiten)
+
+let ultimoJuego = 0;                // ultima muestra recibida en estado "Jugando"
+function registrarSesion(d) {
+  if (conexion !== "on" || d.estado !== 0) return;
+  const ahora = Date.now();
+  if (!grabando) { grabando = true; filasSesion = []; inicioGrab = 0; }   // empieza sola al terminar la calibracion
+  if (!inicioGrab) inicioGrab = ahora;
+  ultimoJuego = ahora;
+  filasSesion.push(ahora + "," + d.senal.toFixed(3) + "," + d.sost.toFixed(3) + "," + d.grupos + "," + d.max.toFixed(3));
+}
+
+function tiempoTxt(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+}
+
+function pintarDatosTab() {
+  const conectada = (conexion === "on" || conexion === "reconectando");
+  if (grabando && !conectada) { detenerGrabacion(); return; }      // se perdió la conexión: se guarda lo grabado
+  if (grabando && Date.now() - ultimoJuego > 3000) { detenerGrabacion(); return; }   // la tortuga dejó de jugar (fin, victoria o recalibración)
+  let txt;
+  if (grabando) txt = "Grabando la sesión…";
+  else if (conexion === "demo") txt = "No disponible en el modo de prueba.";
+  else if (conexion === "on") txt = "Esperando a que la tortuga empiece a jugar (después de calibrar). La grabación inicia sola.";
+  else txt = "Conecta la tortuga para grabar.";
+  $("dtEstado").textContent = txt;
+  if (grabando) {
+    $("dtFilas").textContent = filasSesion.length;
+    $("dtTiempo").textContent = inicioGrab ? tiempoTxt(Date.now() - inicioGrab) : "0:00";
+  }
+}
+setInterval(pintarDatosTab, 500);
+
+// Descarga normal (Chrome/Edge). En iPhone/Bluefy el enlace de descarga a veces no hace nada:
+// por eso, cuando el toque lo hizo el usuario, se prefiere la hoja "Compartir" (permite "Guardar en Archivos").
+async function descargarTexto(nombre, texto, desdeToque) {
+  if (desdeToque && navigator.canShare && navigator.share) {
+    try {
+      const f = new File([texto], nombre, { type: "text/csv" });
+      if (navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: nombre }); return; }
+    } catch (e) { if (e && e.name === "AbortError") return; }     // el usuario cerro la hoja
+  }
+  descargarBlob(nombre, texto);
+}
+
+function descargarBlob(nombre, texto) {
+  const url = URL.createObjectURL(new Blob([texto], { type: "text/csv" }));
+  const a = document.createElement("a");
+  a.href = url; a.download = nombre;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+async function guardarArchivo(nombre, texto) {
+  if (carpetaDestino) {
+    try {
+      const fh = await carpetaDestino.getFileHandle(nombre, { create: true });
+      const w = await fh.createWritable();
+      await w.write(texto);
+      await w.close();
+      return "carpeta";
+    } catch (e) { console.error(e); }                 // sin permiso o carpeta movida: se descarga normal
+  }
+  descargarTexto(nombre, texto);
+  return "descarga";
+}
+
+async function detenerGrabacion() {
+  if (!grabando) return;
+  grabando = false;
+  const filas = filasSesion;
+  const inicio = inicioGrab;
+  $("dtFilas").textContent = filas.length;
+  const dur = inicio ? Math.max(0, ultimoJuego - inicio) : 0;
+  $("dtTiempo").textContent = tiempoTxt(dur);
+  filasSesion = []; inicioGrab = 0;
+  pintarDatosTab();
+  if (!filas.length) { aviso("No se registraron datos de juego"); return; }
+  const nombre = "MyoTurtle_" + Math.floor(inicio / 1000) + ".csv";
+  const texto = "epoch_ms,valor,sostenido,grupos,maximo\n" + filas.join("\n") + "\n";
+  sesiones = sesiones.filter(x => x.nombre !== nombre);
+  sesiones.push({ nombre, texto, filas: filas.length, inicio, dur });
+  guardarSesiones();
+  renderSesiones();
+  if (carpetaDestino) {
+    const donde = await guardarArchivo(nombre, texto);
+    aviso(donde === "carpeta" ? "Sesión guardada en la carpeta" : "Sesión guardada: descárgala en la pestaña Datos");
+  } else aviso("Sesión guardada: descárgala en la pestaña Datos");
+}
+
+
+// Lista de sesiones guardadas en el dispositivo (persisten al cerrar la página)
+function guardarSesiones() {
+  while (sesiones.length) {
+    try { localStorage.setItem(CLAVE_SES, JSON.stringify(sesiones)); return; }
+    catch (e) { if (sesiones.length <= 1) return; sesiones.shift(); }   // sin espacio: se descarta la mas antigua
+  }
+}
+
+function renderSesiones() {
+  const cont = $("dtLista");
+  cont.textContent = "";
+  if (!sesiones.length) {
+    const p = document.createElement("p");
+    p.className = "desc-modo";
+    p.textContent = "Aún no hay sesiones guardadas.";
+    cont.appendChild(p);
+    return;
+  }
+  sesiones.slice().reverse().forEach(s => {           // la mas reciente primero
+    const fila = document.createElement("div");
+    fila.className = "dt-item";
+    const info = document.createElement("div");
+    info.className = "dt-info";
+    const fecha = document.createElement("b");
+    fecha.textContent = new Date(s.inicio).toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" });
+    const det = document.createElement("span");
+    det.textContent = s.nombre + " · " + s.filas + " muestras · " + tiempoTxt(s.dur);
+    info.appendChild(fecha); info.appendChild(det);
+    const acc = document.createElement("div");
+    acc.className = "dt-acc";
+    const d = document.createElement("button");
+    d.type = "button"; d.className = "btn btn-prim dt-peq"; d.textContent = "Descargar";
+    d.dataset.accion = "bajar"; d.dataset.nombre = s.nombre;
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "btn btn-sec dt-peq"; b.textContent = "Borrar";
+    b.dataset.accion = "borrar"; b.dataset.nombre = s.nombre;
+    const c = document.createElement("button");
+    c.type = "button"; c.className = "btn btn-sec dt-peq"; c.textContent = "Copiar";
+    c.dataset.accion = "copiar"; c.dataset.nombre = s.nombre;
+    acc.appendChild(d); acc.appendChild(c); acc.appendChild(b);
+    fila.appendChild(info); fila.appendChild(acc);
+    cont.appendChild(fila);
+  });
+}
+
+$("dtLista").addEventListener("click", e => {
+  const btn = e.target.closest("button[data-accion]");
+  if (!btn) return;
+  const s = sesiones.find(x => x.nombre === btn.dataset.nombre);
+  if (!s) return;
+  if (btn.dataset.accion === "bajar") { descargarTexto(s.nombre, s.texto, true); return; }
+  if (btn.dataset.accion === "copiar") {
+    const ok = () => aviso("CSV copiado: pégalo en Notas, correo o Excel");
+    const fallback = () => { const t = document.createElement("textarea"); t.value = s.texto; t.style.position = "fixed"; t.style.opacity = "0"; document.body.appendChild(t); t.select(); try { document.execCommand("copy"); ok(); } catch (e) { aviso("No se pudo copiar"); } t.remove(); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(s.texto).then(ok, fallback); else fallback();
+    return;
+  }
+  if (btn.dataset.confirmar !== "1") {                // primer toque: pide confirmacion (evita borrar por accidente)
+    btn.dataset.confirmar = "1";
+    btn.textContent = "¿Seguro?";
+    btn.classList.add("confirmar");
+    setTimeout(() => { if (btn.isConnected) { btn.dataset.confirmar = ""; btn.textContent = "Borrar"; btn.classList.remove("confirmar"); } }, 3000);
+    return;
+  }
+  sesiones = sesiones.filter(x => x.nombre !== s.nombre);
+  try { localStorage.setItem(CLAVE_SES, JSON.stringify(sesiones)); } catch (err) {}
+  renderSesiones();
+});
+renderSesiones();
+
+if (window.showDirectoryPicker) {
+  $("dtBloqueCarpeta").hidden = false;
+  $("dtCarpetaBtn").addEventListener("click", async () => {
+    try {
+      carpetaDestino = await window.showDirectoryPicker({ mode: "readwrite" });
+      $("dtCarpeta").textContent = "Carpeta elegida: " + carpetaDestino.name + ". Los archivos se guardan ahí.";
+    } catch (e) { /* el usuario cerró el selector */ }
+  });
+}
+window.addEventListener("beforeunload", e => { if (grabando) { e.preventDefault(); e.returnValue = ""; } });
+
+// ====== Modo de prueba (datos simulados, sin tortuga) ======
+// No aparece en la página: solo se activa abriendo la dirección con #prueba al final (para quien desarrolla).
+let demoTimer = 0;
+const S = {};
+function iniciarDemo() {
+  if (dispositivo && dispositivo.gatt && dispositivo.gatt.connected) desconectar();
+  Object.assign(S, { v: 0.30, reposo: 0.30, max: 1.40, fase: "reposo", restante: 1200, obj: 0.30,
+                     enC: false, contr: 0, sets: 0, llenos: 0, cal: null, prog: 0, enBanda: false, boutMs: 0, boutValido: false,
+                     fuera: 0, esperaRep: false, repMs: 0, victoriaHasta: 0 });
+  hist.length = 0;
+  tieneConfig = true;
+  cfg = { modo: 0, vol: 10, banda: 40, color: [1, 3], audio: true };
+  pintarAjustes();
+  setConexion("demo");
+  clearInterval(demoTimer);
+  demoTimer = setInterval(demoPaso, 50);
+  aviso("Datos simulados: nada se envía a la tortuga");
+}
+function detenerDemo() { clearInterval(demoTimer); demoTimer = 0; if (conexion === "demo") { st = null; hist.length = 0; } }
+
+function demoAplicar(b) {
+  if (b[0] === CMD.MODO) { cfg.modo = b[1]; S.llenos = 0; S.prog = 0; S.esperaRep = false; }
+  if (b[0] === CMD.VOLUMEN) cfg.vol = b[1];
+  if (b[0] === CMD.BANDA) { cfg.banda = b[1]; S.enBanda = false; }
+  if (b[0] === CMD.COLOR) cfg.color[b[1]] = b[2];
+  if (b[0] === CMD.CALIBRAR) S.cal = { estado: 1, hasta: 0 };
+  if (b[0] === CMD.CONTINUAR && S.cal && (S.cal.estado === 1 || S.cal.estado === 3)) {
+    S.cal = S.cal.estado === 1 ? { estado: 2, hasta: performance.now() + 2500 } : { estado: 4, hasta: performance.now() + 1500 };
+  }
+  pintarAjustes();
+}
+
+function demoPaso() {
+  const dt = 50, ahora = performance.now();
+  const r = Math.max(S.max - S.reposo, 0.1), umbral = S.reposo + 0.06, fin = S.reposo + 0.03;
+  if (S.cal) {
+    if (S.cal.hasta && ahora >= S.cal.hasta) {
+      S.cal = S.cal.estado === 2 ? { estado: 3, hasta: 0 } : S.cal.estado === 4 ? { estado: 5, hasta: ahora + 2000 } : null;
+    }
+    if (S.cal) {
+      S.obj = S.cal.estado === 5 ? S.max : S.reposo;
+      S.v += (S.obj - S.v) * 0.18 + (Math.random() - 0.5) * 0.02;
+      return enviarDemo(S.cal.estado, umbral, 0);
+    }
+  }
+  if (ahora < S.victoriaHasta) {
+    S.v += (S.reposo - S.v) * 0.2;
+    return enviarDemo(6, umbral, 0);
+  }
+  S.restante -= dt;
+  if (S.restante <= 0) {
+    if (S.fase === "reposo") {
+      S.fase = "contr"; S.restante = 1300 + Math.random() * 1700;
+      const fr = cfg.modo === 1 ? cfg.banda / 100 + 0.04 + Math.random() * 0.16 : 0.2 + Math.random() * 0.8;
+      S.obj = S.reposo + fr * r;
+    } else { S.fase = "reposo"; S.restante = 1400 + Math.random() * 1800; S.obj = S.reposo; }
+  }
+  S.v += (S.obj - S.v) * 0.18 + (Math.random() - 0.5) * 0.02 + (S.fase === "contr" ? (Math.random() - 0.5) * 0.05 : 0);
+  if (S.v < 0.25) S.v = 0.25;
+
+  if (!S.enC && S.v >= umbral) S.enC = true;
+  else if (S.enC && S.v < fin) { S.enC = false; S.contr++; }
+
+  let grupos = 0;
+  for (let i = 0; i < 7; i++) { const u = i === 0 ? umbral : S.reposo + FRACCION[i] * r; if (S.v >= u) grupos = i + 1; }
+
+  if (cfg.modo === 1) {
+    if (S.esperaRep) {
+      if (S.v < umbral) { S.repMs += dt; if (S.repMs >= 100) { S.esperaRep = false; S.enBanda = false; S.boutValido = false; S.boutMs = 0; } }
+      else S.repMs = 0;
+    }
+    const frac = (S.v - S.reposo) / r, p = cfg.banda / 100;
+    const entraMax = Math.min(cfg.banda + 20, 95) / 100, saleMin = Math.max(cfg.banda - 15, 10) / 100;
+    if (!S.enBanda) { if (S.v >= umbral && frac >= p && frac <= entraMax) S.enBanda = true; }
+    else if (S.v < umbral || frac < saleMin || frac > 0.99) S.enBanda = false;
+    if (S.enBanda) {
+      S.fuera = 0; S.boutMs += dt;
+      if (!S.boutValido && S.boutMs >= 150) { S.boutValido = true; acreditarDemo(S.boutMs); }
+      else if (S.boutValido) acreditarDemo(dt);
+    } else if (S.boutMs > 0) {
+      S.fuera += dt; if (S.fuera > 200) { S.boutMs = 0; S.boutValido = false; }
+    }
+  }
+  enviarDemo(0, umbral, grupos);
+}
+function acreditarDemo(ms) {
+  if (S.esperaRep) return;
+  S.prog += ms / 1000;
+  if (S.prog >= 1) {
+    S.llenos++; S.prog = 0;
+    if (S.llenos >= 7) { S.sets++; S.llenos = 0; S.victoriaHasta = performance.now() + 3000; S.fase = "reposo"; S.obj = S.reposo; S.restante = 3500; }
+    else { S.esperaRep = true; S.repMs = 0; }
+  }
+}
+function enviarDemo(estado, umbral, grupos) {
+  procesar({
+    modo: cfg.modo, estado,
+    flags: (S.enC ? 1 : 0) | (S.enBanda ? 2 : 0) | (S.boutValido ? 4 : 0) | (S.esperaRep ? 8 : 0) | 16 | 32 | 64,
+    senal: S.v, sost: Math.max(S.reposo, S.v - 0.03), reposo: S.reposo, max: S.max, umbral,
+    grupos, llenos: S.llenos, prog: Math.min(S.prog, 1), sets: S.sets, contr: S.contr
+  });
+}
+
+setConexion("off");
+if (location.hash === "#prueba") iniciarDemo();
+window.__tortugaLista = true;
+})(); } catch (e) {
+  window.__mostrarError("Error al arrancar la página: " + e.name + ": " + e.message + (e.stack ? " | " + String(e.stack).split("\n")[0] : ""));
+}
+</script>
+</body>
+</html>
